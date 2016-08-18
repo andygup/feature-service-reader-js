@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+    <title>feature-service-reader-js</title>
+    <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://js.arcgis.com/4.0/esri/css/main.css">
+    <link rel="stylesheet" href="css/basic.css">
+</head>
+
+<body>
+
+<div id="main-panel" class="panel panel-primary">
+    <div class="panel-heading">Feature Service Reader</div>
+    <!--<div class="panel-body">-->
+        <!--Use this app to find the min and max numerical values for fields within a feature service.-->
+    <!--</div>-->
+
+    <div class="input-group">
+        <input id="form-fs-url" type="text" class="form-control" placeholder="Feature Service Layer">
+        <span class="input-group-btn">
+            <button id="btn-load-fs" class="btn btn-primary" type="button">Go!</button>
+        </span>
+    </div>
+</div>
+
+<div id="viewDiv"></div>
+
+<script>
+    var dojoConfig = {
+        paths: { libs: location.pathname.replace(/\/[^/]+$/, "") + "/libs" }
+    };
+</script>
+<script src="https://js.arcgis.com/4.0/"></script>
+
+<script>
+    "strict";
+
+    require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/FeatureLayer",
+        "libs/FeatureParser",
+        "dojo/domReady!"
+    ], function(Map, MapView, FeatureLayer) {
+
+        document.getElementById("btn-load-fs").addEventListener("click", loadFeatureSvc);
+
+        var form = document.getElementById("form-fs-url");
+
+        // Focus the cursor in the form
+        form.focus();
+        form.select();
+        form.value = "https://services.arcgis.com/V6ZHFr6zdgNZuVG0/arcgis/rest/services/Landscape_Trees/FeatureServer/0";
+
+        var featureLayer = null;
+
+        var map = new Map({
+            basemap: "streets"
+        });
+
+        var view = new MapView({
+            container: "viewDiv",
+            map: map,
+            zoom: 4,
+            center: [15, 65]
+        });
+
+        function loadFeatureSvc(){
+
+            var table = document.getElementById("table-div-1");
+
+            // If table already exists then lets remove it.
+            if(table){
+                table.parentNode.removeChild(table);
+            }
+
+            featureLayer = new FeatureLayer({
+                url: form.value,
+                outFields: ["*"]
+            });
+
+            // You could also listenfor the layerview-create event
+            //featureLayer.on("layerview-create", processFeatureSvc);
+
+            map.add(featureLayer);
+
+            featureLayer.then(function(){
+                view.extent = featureLayer.fullExtent;
+                view.zoom = view.zoom - 1;
+
+                featureLayer.queryFeatures().then(function(results){
+
+                    var fp = new A.esri.FeatureParser()
+                            .init(results.toJSON())
+                            .then(function(result){
+                                console.log("Results: " + JSON.stringify(result));
+                                createTable(result);
+                                enableDivListeners();
+                            });
+                });
+            });
+        }
+
+        // Prevent scrolling of entire window
+        function enableDivListeners(){
+            document.getElementById("table-div-1").onmouseover = function(){
+                document.body.style.overflow='hidden';
+            };
+
+            document.getElementById("table-div-1").onmouseout = function(){
+                document.body.style.overflow='auto';
+            }
+        }
+
+        function createTable(object){
+
+            // Create the main div
+            var _div = document.createElement("div");
+            _div.id = "table-div-1";
+            _div.className = "panel panel-default";
+
+            var height = document.getElementById("main-panel").clientHeight;
+
+            // Seperate the div from the element above
+            _div.style.top = (height + 20 + 'px').toString();
+
+            // Create the table
+            var _table = document.createElement("table");
+            _table.id = "table-1";
+            _table.className = "table table-fixedheader";
+
+            // Create the table head
+            var _thead = document.createElement("thead");
+            var _tr = document.createElement("tr");
+            var _th1 = document.createElement("th");
+            _th1.width = "40%";
+            var _th2 = document.createElement("th");
+            _th2.width = "30%";
+            var _th3 = document.createElement("th");
+            _th3.width = "30%";
+
+            _th1.appendChild(document.createTextNode("Field Name"));
+            _tr.appendChild(_th1);
+            _th2.appendChild(document.createTextNode("Min"));
+            _tr.appendChild(_th2);
+            _th3.appendChild(document.createTextNode("Max"));
+            _tr.appendChild(_th3);
+
+            _thead.appendChild(_tr);
+            _table.appendChild(_thead);
+
+            // Create the table body
+            var _tbody = document.createElement("tbody");
+            _tbody.style.height = "200px";
+            _tbody.style.width = "100%";
+
+            // Create the table rows
+            for (var key in object) {
+                if (object.hasOwnProperty(key)) {
+
+                    var tr = document.createElement("tr");
+                    var tdKey = document.createElement("td");
+                    tdKey.width = "40%";
+                    var tdMin = document.createElement("td");
+                    tdMin.width = "30%";
+                    var tdMax = document.createElement("td");
+                    tdMax.width = "30%";
+
+                    tdKey.appendChild(document.createTextNode(key));
+                    tr.appendChild(tdKey);
+                    tdMin.appendChild(document.createTextNode(object[key].min));
+                    tr.appendChild(tdMin);
+                    tdMax.appendChild(document.createTextNode(object[key].max));
+                    tr.appendChild(tdMax);
+
+                    _tbody.appendChild(tr);
+                }
+            }
+
+            _table.appendChild(_tbody);
+            _div.appendChild(_table);
+            document.body.appendChild(_div);
+        }
+    });
+</script>
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"></script>
+
+</body>
+</html>
